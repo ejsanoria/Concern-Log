@@ -36,14 +36,13 @@
   .login-card .sub { color: var(--muted); margin: 0 0 18px; }
   .login-error { color: var(--danger); font-size: 14px; margin: 12px 0 0; min-height: 1em; }
   .login-card .btn.primary { margin-top: 20px; }
-  .pw-wrap { position: relative; }
-  .pw-wrap input { padding-right: 64px; }
-  .pw-toggle {
-    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; font: inherit; font-size: 13px; font-weight: 500;
-    color: var(--muted); padding: 4px 8px; border-radius: 4px; cursor: pointer;
+  .login-card label.show-pw {
+    display: flex; align-items: center; gap: 8px;
+    margin: 10px 0 0; font-weight: 400; font-size: 14px; color: var(--ink); cursor: pointer;
   }
-  .pw-toggle:hover { color: var(--ink); background: var(--paper); }
+  .login-card label.show-pw input {
+    width: 16px; height: 16px; margin: 0; padding: 0; cursor: pointer; accent-color: var(--ink);
+  }
 
   /* ---------- App ---------- */
   .shell { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
@@ -145,10 +144,10 @@
     <input id="email" type="email" autocomplete="username" required />
 
     <label for="password">Password</label>
-    <div class="pw-wrap">
-      <input id="password" type="password" autocomplete="current-password" required />
-      <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password" aria-pressed="false">Show</button>
-    </div>
+    <input id="password" type="password" autocomplete="current-password" required />
+    <label class="show-pw" for="showPw">
+      <input type="checkbox" id="showPw" /> Show password
+    </label>
 
     <button class="btn primary" id="loginBtn" type="submit">Sign in</button>
     <p class="login-error" id="loginError" role="alert"></p>
@@ -290,14 +289,9 @@
 
   function setPasswordVisible(show) {
     $('password').type = show ? 'text' : 'password';
-    $('pwToggle').textContent = show ? 'Hide' : 'Show';
-    $('pwToggle').setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-    $('pwToggle').setAttribute('aria-pressed', show);
+    $('showPw').checked = show;
   }
-  $('pwToggle').addEventListener('click', () => {
-    setPasswordVisible($('password').type === 'password');
-    $('password').focus();
-  });
+  $('showPw').addEventListener('change', (e) => setPasswordVisible(e.target.checked));
 
   $('logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); });
 
@@ -369,7 +363,7 @@
     ]);
     loading = false;
     if (c.error || k.error) {
-      showError(`Couldn't load data: ${(c.error || k.error).message}. Check that schema.sql and add-login.sql have been run in Supabase.`);
+      showError(`Couldn't load data: ${(c.error || k.error).message}. Check that schema.sql has been run in Supabase.`);
     } else {
       clients = c.data; concerns = k.data; clearError();
     }
