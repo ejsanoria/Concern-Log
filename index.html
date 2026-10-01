@@ -8,13 +8,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
     --ink: #1d2b3a; --muted: #5d6b7a; --line: #d6dde4;
     --paper: #f6f8fa; --card: #ffffff;
     --open: #b8640f; --open-bg: #fdf1e3;
     --closed: #2a7563; --closed-bg: #e5f3ef;
-    --danger: #a3302a;
+    --danger: #a3302a; --ok-bg: #e5f3ef;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -44,67 +45,118 @@
     width: 16px; height: 16px; margin: 0; padding: 0; cursor: pointer; accent-color: var(--ink);
   }
 
-  /* ---------- App ---------- */
-  .shell { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
+  /* ---------- Shell ---------- */
+  .shell { max-width: 1180px; margin: 0 auto; padding: 28px 24px 64px; }
   .masthead {
-    display: flex; align-items: baseline; justify-content: space-between;
-    flex-wrap: wrap; gap: 12px;
-    border-bottom: 3px solid var(--ink); padding-bottom: 14px; margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 14px;
   }
-  .masthead h1 { font-size: 30px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-  .mast-right { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
-  .tally { margin: 0; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .tally strong { color: var(--ink); font-size: 20px; }
-  #openCount { color: var(--open); }
-  .sep { width: 1px; height: 18px; background: var(--line); margin: 0 10px; }
-  .who { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .masthead h1 { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .who { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 12px; }
   .who .link { margin: 0; }
+  .user-name { color: var(--ink); font-weight: 500; }
 
-  .alert {
+  .nav {
+    display: flex; gap: 2px; border-bottom: 1px solid var(--line);
+    margin-bottom: 24px; overflow-x: auto;
+  }
+  .nav button {
+    font: inherit; font-weight: 500; background: none; border: none; cursor: pointer;
+    padding: 10px 16px; color: var(--muted); white-space: nowrap;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav button:hover { color: var(--ink); }
+  .nav button.on { color: var(--ink); border-bottom-color: var(--ink); }
+  .badge {
+    font-size: 12px; font-weight: 700; background: var(--open-bg); color: var(--open);
+    border-radius: 999px; padding: 0 8px; min-width: 22px; text-align: center;
+  }
+
+  .alert, .notice {
     display: none; justify-content: space-between; gap: 16px; align-items: center;
-    background: #fbeceb; color: var(--danger); border-left: 4px solid var(--danger);
     padding: 10px 14px; margin-bottom: 20px; border-radius: 4px;
   }
-  .alert.show { display: flex; }
+  .alert { background: #fbeceb; color: var(--danger); border-left: 4px solid var(--danger); }
+  .notice { background: var(--ok-bg); color: var(--closed); border-left: 4px solid var(--closed); }
+  .alert.show, .notice.show { display: flex; }
 
-  .grid { display: grid; grid-template-columns: 360px 1fr; gap: 28px; align-items: start; }
-  h2 { font-size: 17px; margin: 0 0 16px; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  h3 { font-size: 15px; margin: 0 0 12px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
 
-  .intake {
+  /* ---------- Forms ---------- */
+  .form-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 8px;
-    padding: 22px; position: sticky; top: 20px;
+    padding: 24px; max-width: 600px;
   }
   label { display: block; font-weight: 500; margin: 14px 0 6px; }
+  .form-card label:first-of-type { margin-top: 0; }
   select, input, textarea {
     width: 100%; font: inherit; color: inherit;
     border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; background: #fff;
   }
   textarea { resize: vertical; }
   select:focus, input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
-  .inline { display: none; gap: 8px; align-items: center; }
-  .inline.show { display: flex; }
-  .inline input { flex: 1; }
   .hint { color: var(--muted); font-size: 13px; margin: 10px 0 16px; }
+  .row { display: flex; gap: 10px; }
+  .row input { flex: 1; }
 
-  .btn { font: inherit; font-weight: 500; cursor: pointer; border-radius: 6px; padding: 9px 16px; border: 1px solid transparent; }
+  .btn { font: inherit; font-weight: 500; cursor: pointer; border-radius: 6px; padding: 9px 16px; border: 1px solid transparent; white-space: nowrap; }
   .btn:disabled { opacity: 0.6; cursor: default; }
-  .btn.primary { width: 100%; background: var(--ink); color: #fff; }
+  .btn.primary { background: var(--ink); color: #fff; }
   .btn.primary:hover:not(:disabled) { background: #2c3f53; }
   .btn.ghost { background: #fff; border-color: var(--line); color: var(--ink); }
+  .btn.ghost:hover:not(:disabled) { border-color: var(--muted); }
   .btn.close { background: var(--closed); color: #fff; }
+  .btn.wide { width: 100%; }
   .link {
     background: none; border: none; padding: 0; margin-top: 6px;
     font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline; cursor: pointer;
   }
-  .alert .link { margin: 0; color: inherit; }
+  .alert .link, .notice .link { margin: 0; color: inherit; }
 
-  .log-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .log-head h2 { margin: 0; }
+  /* ---------- Summary ---------- */
+  .toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .toolbar .period { min-width: 230px; }
+  .toolbar .period label { margin-top: 0; }
+  .toolbar .actions { display: flex; gap: 8px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+  .kpi .val { font-size: 30px; font-weight: 700; line-height: 1.1; }
+  .kpi .lbl { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .kpi.open .val { color: var(--open); }
+  .kpi.closed .val { color: var(--closed); }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+  .charts .card { margin-bottom: 0; }
+  .chart-box { position: relative; height: 280px; }
+  .chart-empty { color: var(--muted); text-align: center; padding: 100px 0; margin: 0; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  td .open-n { color: var(--open); font-weight: 500; }
+
+  .aging { list-style: none; margin: 0; padding: 0; }
+  .aging li { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .aging li:last-child { border-bottom: none; }
+  .aging .age { min-width: 74px; font-weight: 700; color: var(--open); }
+  .aging .body { min-width: 0; }
+  .aging .body p { margin: 2px 0 0; color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- Concerns list ---------- */
+  .filters { display: grid; grid-template-columns: auto 170px 190px 190px 1fr; gap: 10px; align-items: center; margin-bottom: 16px; }
   .tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
-  .tab { font: inherit; border: none; background: none; padding: 6px 14px; cursor: pointer; color: var(--muted); }
+  .tab { font: inherit; border: none; background: none; padding: 8px 14px; cursor: pointer; color: var(--muted); }
   .tab + .tab { border-left: 1px solid var(--line); }
   .tab.on { background: var(--ink); color: #fff; }
-  .search { margin: 14px 0; }
+  .result-count { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
 
   .entries { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
   .entry {
@@ -117,18 +169,36 @@
   .entry-main { flex: 1; min-width: 0; }
   .entry-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .client { font-weight: 700; }
+  .project { color: var(--muted); font-weight: 500; }
+  .project::before { content: '/'; margin-right: 8px; color: var(--line); }
+  .stack { display: grid; gap: 16px; }
+  .proj-list { color: var(--muted); font-size: 13px; }
   .pill { font-size: 12px; font-weight: 500; padding: 1px 9px; border-radius: 999px; }
   .pill.open { background: var(--open-bg); color: var(--open); }
   .pill.closed { background: var(--closed-bg); color: var(--closed); }
   .text { margin: 6px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .dates { margin: 0; font-size: 13px; color: var(--muted); }
-  .empty { color: var(--muted); text-align: center; padding: 40px 16px; border: 1px dashed var(--line); border-radius: 6px; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 16px; border: 1px dashed var(--line); border-radius: 6px; margin: 0; }
 
-  @media (max-width: 860px) {
-    .grid { grid-template-columns: 1fr; }
-    .intake { position: static; }
+  /* ---------- Clients ---------- */
+  .two-col { display: grid; grid-template-columns: minmax(0, 420px) 1fr; gap: 24px; align-items: start; }
+
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .charts, .two-col { grid-template-columns: 1fr; }
+    .filters { grid-template-columns: 1fr 1fr; }
+    .filters .tabs { grid-column: 1 / -1; justify-self: start; }
+    .filters .search { grid-column: 1 / -1; }
     .entry { flex-direction: column; align-items: stretch; }
     .entry-action .btn { width: 100%; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .nav, .who, .toolbar .actions, .alert, .notice { display: none !important; }
+    .panel:not(#panel-summary) { display: none !important; }
+    .card, .kpi { break-inside: avoid; }
+    .charts { grid-template-columns: 1fr 1fr; }
   }
 </style>
 </head>
@@ -149,7 +219,7 @@
       <input type="checkbox" id="showPw" /> Show password
     </label>
 
-    <button class="btn primary" id="loginBtn" type="submit">Sign in</button>
+    <button class="btn primary wide" id="loginBtn" type="submit">Sign in</button>
     <p class="login-error" id="loginError" role="alert"></p>
   </form>
 </div>
@@ -158,65 +228,183 @@
 <main class="shell hidden" id="appView">
   <header class="masthead">
     <h1>Client concern log</h1>
-    <div class="mast-right">
-      <p class="tally">
-        <strong id="openCount">0</strong> open
-        <span class="sep" aria-hidden="true"></span>
-        <strong id="closedCount">0</strong> closed
-      </p>
-      <div class="who">
-        <span id="userEmail"></span>
-        <button class="link" id="logoutBtn">Sign out</button>
-      </div>
+    <div class="who">
+      <span id="userName" class="user-name"></span>
+      <button class="link" id="logoutBtn">Sign out</button>
     </div>
   </header>
+
+  <nav class="nav" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="summary">Summary</button>
+    <button role="tab" data-tab="log">Log new concern</button>
+    <button role="tab" data-tab="clients">Add new client</button>
+    <button role="tab" data-tab="concerns">Concerns <span class="badge" id="openBadge">0</span></button>
+  </nav>
 
   <div class="alert" id="alert" role="alert">
     <span id="alertText"></span>
     <button class="link" id="dismissBtn">Dismiss</button>
   </div>
+  <div class="notice" id="notice" role="status">
+    <span id="noticeText"></span>
+    <span id="noticeAction"></span>
+  </div>
 
-  <div class="grid">
-    <section class="intake" aria-labelledby="intake-h">
-      <h2 id="intake-h">Log a new concern</h2>
+  <!-- ===== SUMMARY ===== -->
+  <section class="panel" id="panel-summary">
+    <div class="toolbar">
+      <div>
+        <h2>Summary</h2>
+        <p class="lead" style="margin:0" id="sumLead">All concerns logged so far.</p>
+      </div>
+      <div class="period">
+        <label for="sumMonth">Period</label>
+        <select id="sumMonth"></select>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" id="csvBtn">Download CSV</button>
+        <button class="btn ghost" id="printBtn">Print report</button>
+      </div>
+    </div>
 
+    <div class="kpis">
+      <div class="kpi"><div class="val" id="kTotal">0</div><div class="lbl">Total concerns</div></div>
+      <div class="kpi open"><div class="val" id="kOpen">0</div><div class="lbl">Still open</div></div>
+      <div class="kpi closed"><div class="val" id="kClosed">0</div><div class="lbl">Closed</div></div>
+      <div class="kpi"><div class="val" id="kAvg">–</div><div class="lbl">Average time to close</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="card">
+        <h3 id="timeTitle">Concerns per month</h3>
+        <div class="chart-box"><canvas id="timeChart"></canvas><p class="chart-empty hidden" id="timeEmpty">No concerns in this period.</p></div>
+      </div>
+      <div class="card">
+        <h3>Concerns by client</h3>
+        <div class="chart-box" id="clientBox"><canvas id="clientChart"></canvas><p class="chart-empty hidden" id="clientEmpty">No concerns in this period.</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Report by client</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th><th class="num">Total</th><th class="num">Open</th>
+              <th class="num">Closed</th><th class="num">Closure rate</th><th class="num">Avg time to close</th>
+            </tr>
+          </thead>
+          <tbody id="reportBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Report by project</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Client</th><th>Project</th><th class="num">Total</th><th class="num">Open</th>
+              <th class="num">Closed</th><th class="num">Avg time to close</th>
+            </tr>
+          </thead>
+          <tbody id="projectReportBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Longest-open concerns</h3>
+      <ul class="aging" id="agingList"></ul>
+    </div>
+  </section>
+
+  <!-- ===== LOG NEW CONCERN ===== -->
+  <section class="panel hidden" id="panel-log">
+    <h2>Log new concern</h2>
+    <p class="lead">The escalation date and your name are recorded automatically. The concern starts as Open.</p>
+    <div class="form-card">
       <label for="clientSelect">Client</label>
-      <div id="selectWrap">
-        <select id="clientSelect">
-          <option value="">Select the client raising the concern</option>
-        </select>
-        <button class="link" id="showAddClient">Client not listed? Add one</button>
-      </div>
-      <div class="inline" id="addClientWrap">
-        <input id="newClient" placeholder="New client name" />
-        <button class="btn ghost" id="addClientBtn">Add</button>
-        <button class="link" id="cancelAddClient">Cancel</button>
-      </div>
+      <select id="clientSelect">
+        <option value="">Select the client raising the concern</option>
+      </select>
+      <button class="link" data-goto="clients">Client not listed? Add a new client</button>
+
+      <label for="projectSelect">Project</label>
+      <select id="projectSelect" disabled>
+        <option value="">Select a client first</option>
+      </select>
+      <button class="link" id="addProjectLink">Project not listed? Add a project</button>
 
       <label for="concernText">Concern</label>
-      <textarea id="concernText" rows="6"
+      <textarea id="concernText" rows="7"
         placeholder="What did the client escalate? Include shipment, site, or reference numbers if any."></textarea>
 
-      <p class="hint">The escalation date and your name are recorded automatically. The concern starts as Open.</p>
+      <div style="margin-top:18px">
+        <button class="btn primary" id="logBtn">Log concern</button>
+      </div>
+    </div>
+  </section>
 
-      <button class="btn primary" id="logBtn">Log concern</button>
-    </section>
-
-    <section class="log" aria-labelledby="log-h">
-      <div class="log-head">
-        <h2 id="log-h">Concerns</h2>
-        <div class="tabs" role="tablist">
-          <button class="tab on" role="tab" data-filter="Open" aria-selected="true">Open</button>
-          <button class="tab" role="tab" data-filter="Closed" aria-selected="false">Closed</button>
-          <button class="tab" role="tab" data-filter="All" aria-selected="false">All</button>
+  <!-- ===== ADD NEW CLIENT ===== -->
+  <section class="panel hidden" id="panel-clients">
+    <h2>Add new client</h2>
+    <p class="lead">Add clients and the projects under them. Both appear in the lists when logging a concern.</p>
+    <div class="two-col">
+      <div class="stack">
+        <div class="form-card">
+          <h3>New client</h3>
+          <label for="newClient">Client name</label>
+          <div class="row">
+            <input id="newClient" placeholder="e.g. company name" />
+            <button class="btn primary" id="addClientBtn">Add client</button>
+          </div>
+        </div>
+        <div class="form-card">
+          <h3>New project</h3>
+          <label for="projClient">Client</label>
+          <select id="projClient"></select>
+          <label for="newProject">Project name</label>
+          <div class="row">
+            <input id="newProject" placeholder="e.g. site, account, or service" />
+            <button class="btn primary" id="addProjectBtn">Add project</button>
+          </div>
         </div>
       </div>
+      <div class="card" style="margin:0">
+        <h3 id="clientListTitle">Clients</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Client and projects</th><th class="num">Concerns</th><th class="num">Open</th><th></th></tr></thead>
+            <tbody id="clientTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <input class="search" id="search" type="search" placeholder="Search by client or concern" />
+  <!-- ===== CONCERNS ===== -->
+  <section class="panel hidden" id="panel-concerns">
+    <h2>Concerns</h2>
+    <p class="lead">Close a concern once it has been resolved. Closed concerns can be reopened.</p>
 
-      <div id="list"><p class="empty">Loading concerns…</p></div>
-    </section>
-  </div>
+    <div class="filters">
+      <div class="tabs" role="tablist" aria-label="Status">
+        <button class="tab on" data-filter="Open">Open</button>
+        <button class="tab" data-filter="Closed">Closed</button>
+        <button class="tab" data-filter="All">All</button>
+      </div>
+      <select id="conMonth" aria-label="Month"></select>
+      <select id="conClient" aria-label="Client"></select>
+      <select id="conProject" aria-label="Project" disabled><option value="all">All projects</option></select>
+      <input class="search" id="search" type="search" placeholder="Search by client, project or concern" />
+    </div>
+
+    <p class="result-count" id="resultCount"></p>
+    <div id="list"><p class="empty">Loading concerns…</p></div>
+  </section>
 </main>
 
 <script>
@@ -225,16 +413,27 @@
   const SUPABASE_KEY = 'sb_publishable_TFrnGaNO5Hfb2Z3AQ54Kyg_TbO2q-u3';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const FIELDS = 'id, client_id, concern, escalation_date, status, closed_at, logged_by, closed_by, clients(name)';
+  // ---- Display names for each account (edit here to add or rename people) ----
+  const NAMES = {
+    'ejsanoria@bcsd.com.ph':   'Eran Joshua Sanoria',
+    'arieldote@bcsd.com.ph':   'Ariel Dote',
+    'aneliebunye@bcsd.com.ph': 'Anelie Bunye',
+  };
+
+  const FIELDS = 'id, client_id, project_id, concern, escalation_date, status, closed_at, logged_by, closed_by, clients(name), projects(name)';
+  const COLORS = { open: '#b8640f', closed: '#2a7563', ink: '#1d2b3a', muted: '#5d6b7a', line: '#e3e8ed' };
 
   // ---- State ----
   let clients = [];
+  let projects = [];
   let concerns = [];
-  let filter = 'Open';
+  let statusFilter = 'Open';
   let search = '';
   let busyId = null;
   let loading = true;
   let currentUser = null;
+  let activeTab = 'summary';
+  const charts = {};
 
   // ---- Helpers ----
   const $ = (id) => document.getElementById(id);
@@ -244,12 +443,56 @@
     timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit'
   }) : '';
-  const who = (email) => email ? email.split('@')[0] : '';
+  const who = (email) => {
+    if (!email) return '';
+    return NAMES[email.toLowerCase()] || email.split('@')[0];
+  };
+  const clientName = (c) => c.clients?.name ?? 'Unknown client';
+  const projectName = (c) => c.projects?.name ?? '';
+  const projectsOf = (clientId) => projects.filter(p => String(p.client_id) === String(clientId));
 
-  function showError(msg) { $('alertText').textContent = msg; $('alert').classList.add('show'); }
+  // Dates in Manila time
+  const dayKey = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // YYYY-MM-DD
+  const monthKey = (iso) => dayKey(iso).slice(0, 7);                                                // YYYY-MM
+  const monthLabel = (key, style = 'long') => {
+    const [y, m] = key.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', { month: style, year: 'numeric', timeZone: 'UTC' });
+  };
+  const addMonths = (key, n) => {
+    const [y, m] = key.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + n, 1));
+    return d.toISOString().slice(0, 7);
+  };
+  const duration = (ms) => {
+    const h = ms / 36e5;
+    if (h < 1) return `${Math.max(1, Math.round(ms / 6e4))} min`;
+    if (h < 24) return `${h.toFixed(1)} hrs`;
+    return `${(h / 24).toFixed(1)} days`;
+  };
+  const closeMs = (c) => new Date(c.closed_at) - new Date(c.escalation_date);
+  const avgClose = (rows) => {
+    const closed = rows.filter(c => c.status === 'Closed' && c.closed_at);
+    if (!closed.length) return null;
+    return closed.reduce((s, c) => s + closeMs(c), 0) / closed.length;
+  };
+
+  function showError(msg) { hideNotice(); $('alertText').textContent = msg; $('alert').classList.add('show'); }
   function clearError() { $('alert').classList.remove('show'); }
+  function showNotice(msg, actionHtml = '') {
+    clearError();
+    $('noticeText').textContent = msg;
+    $('noticeAction').innerHTML = actionHtml;
+    $('notice').classList.add('show');
+  }
+  function hideNotice() { $('notice').classList.remove('show'); }
 
   // ---- Auth ----
+  function setPasswordVisible(show) {
+    $('password').type = show ? 'text' : 'password';
+    $('showPw').checked = show;
+  }
+  $('showPw').addEventListener('change', (e) => setPasswordVisible(e.target.checked));
+
   function showLogin() {
     currentUser = null;
     $('appView').classList.add('hidden');
@@ -262,10 +505,15 @@
   function showApp(user) {
     const firstLoad = !currentUser || currentUser.id !== user.id;
     currentUser = user;
-    $('userEmail').textContent = user.email;
+    $('userName').textContent = who(user.email);
+    $('userName').title = user.email;
     $('loginView').classList.add('hidden');
     $('appView').classList.remove('hidden');
-    if (firstLoad) load();
+    if (firstLoad) {
+      const fromHash = location.hash.replace('#', '');
+      showTab(['summary', 'log', 'clients', 'concerns'].includes(fromHash) ? fromHash : 'summary');
+      load();
+    }
   }
 
   $('loginForm').addEventListener('submit', async (e) => {
@@ -287,47 +535,357 @@
     }
   });
 
-  function setPasswordVisible(show) {
-    $('password').type = show ? 'text' : 'password';
-    $('showPw').checked = show;
-  }
-  $('showPw').addEventListener('change', (e) => setPasswordVisible(e.target.checked));
-
   $('logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); });
 
   db.auth.onAuthStateChange((_event, session) => {
     if (session?.user) showApp(session.user); else showLogin();
   });
 
-  // ---- Rendering ----
-  function renderClients(selectedId) {
-    const sel = $('clientSelect');
-    const current = selectedId ?? sel.value;
-    sel.innerHTML = '<option value="">Select the client raising the concern</option>' +
-      clients.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
-    sel.value = current || '';
+  // ---- Tabs ----
+  function showTab(name) {
+    activeTab = name;
+    document.querySelectorAll('.nav button').forEach(b => {
+      const on = b.dataset.tab === name;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on);
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('hidden', p.id !== `panel-${name}`));
+    history.replaceState(null, '', `#${name}`);
+    if (name === 'summary') renderSummary();
+    if (name === 'log') $('concernText').focus();
+    if (name === 'clients') $('newClient').focus();
+  }
+  document.querySelectorAll('.nav button').forEach(b => b.addEventListener('click', () => { hideNotice(); showTab(b.dataset.tab); }));
+  document.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-goto]');
+    if (g) { hideNotice(); showTab(g.dataset.goto); }
+  });
+
+  // ---- Shared selects ----
+  function monthKeysRange() {
+    const now = monthKey(new Date().toISOString());
+    if (!concerns.length) return [now];
+    const keys = concerns.map(c => monthKey(c.escalation_date)).sort();
+    let k = keys[0] < now ? keys[0] : now;
+    const out = [];
+    while (k <= now) { out.push(k); k = addMonths(k, 1); }
+    return out.reverse(); // newest first
   }
 
+  function fillMonthSelect(sel, allLabel) {
+    const current = sel.value || 'all';
+    sel.innerHTML = `<option value="all">${allLabel}</option>` +
+      monthKeysRange().map(k => `<option value="${k}">${monthLabel(k)}</option>`).join('');
+    sel.value = [...sel.options].some(o => o.value === current) ? current : 'all';
+  }
+
+  function renderClientSelects(selectId) {
+    const sel = $('clientSelect');
+    const cur = selectId ?? sel.value;
+    sel.innerHTML = '<option value="">Select the client raising the concern</option>' +
+      clients.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    sel.value = cur || '';
+
+    const f = $('conClient');
+    const curF = f.value || 'all';
+    f.innerHTML = '<option value="all">All clients</option>' +
+      clients.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    f.value = [...f.options].some(o => o.value === curF) ? curF : 'all';
+
+    const pc = $('projClient');
+    const curP = pc.value;
+    pc.innerHTML = '<option value="">Select the client this project is under</option>' +
+      clients.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    pc.value = curP || '';
+
+    renderProjectSelect();
+    renderProjectFilter();
+  }
+
+  function renderProjectSelect(selectId) {
+    const sel = $('projectSelect');
+    const clientId = $('clientSelect').value;
+    const cur = selectId ?? sel.value;
+    if (!clientId) {
+      sel.innerHTML = '<option value="">Select a client first</option>';
+      sel.disabled = true;
+      return;
+    }
+    const list = projectsOf(clientId);
+    sel.disabled = list.length === 0;
+    sel.innerHTML = list.length
+      ? '<option value="">Select the project concerned</option>' +
+        list.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')
+      : '<option value="">No projects yet for this client</option>';
+    sel.value = list.some(p => String(p.id) === String(cur)) ? String(cur) : '';
+  }
+
+  function renderProjectFilter() {
+    const sel = $('conProject');
+    const clientId = $('conClient').value;
+    const cur = sel.value || 'all';
+    if (!clientId || clientId === 'all') {
+      sel.innerHTML = '<option value="all">All projects</option>';
+      sel.disabled = true;
+      return;
+    }
+    const list = projectsOf(clientId);
+    sel.disabled = false;
+    sel.innerHTML = '<option value="all">All projects</option>' +
+      list.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') +
+      '<option value="none">No project</option>';
+    sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'all';
+  }
+
+  function renderAll() {
+    $('openBadge').textContent = concerns.filter(c => c.status === 'Open').length;
+    fillMonthSelect($('sumMonth'), 'All time');
+    fillMonthSelect($('conMonth'), 'All months');
+    renderClientSelects();
+    renderClientTable();
+    renderList();
+    if (activeTab === 'summary') renderSummary();
+  }
+
+  // ---- Summary ----
+  function summaryRows() {
+    const p = $('sumMonth').value || 'all';
+    return p === 'all' ? concerns : concerns.filter(c => monthKey(c.escalation_date) === p);
+  }
+
+  function drawChart(id, config) {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart($(id), config);
+  }
+
+  function renderSummary() {
+    if (typeof Chart === 'undefined') return;
+    const period = $('sumMonth').value || 'all';
+    const rows = summaryRows();
+    const open = rows.filter(c => c.status === 'Open').length;
+    const avg = avgClose(rows);
+
+    $('sumLead').textContent = period === 'all'
+      ? 'All concerns logged so far.'
+      : `Concerns escalated in ${monthLabel(period)}.`;
+    $('kTotal').textContent = rows.length;
+    $('kOpen').textContent = open;
+    $('kClosed').textContent = rows.length - open;
+    $('kAvg').textContent = avg == null ? '–' : duration(avg);
+
+    // --- Over time chart ---
+    let labels = [], keys = [], bucket;
+    if (period === 'all') {
+      const range = monthKeysRange().reverse().slice(-12);
+      keys = range; labels = range.map(k => monthLabel(k, 'short'));
+      bucket = (c) => monthKey(c.escalation_date);
+      $('timeTitle').textContent = 'Concerns per month (last 12 months)';
+    } else {
+      const [y, m] = period.split('-').map(Number);
+      const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      for (let d = 1; d <= days; d++) {
+        keys.push(`${period}-${String(d).padStart(2, '0')}`);
+        labels.push(String(d));
+      }
+      bucket = (c) => dayKey(c.escalation_date);
+      $('timeTitle').textContent = `Concerns per day, ${monthLabel(period)}`;
+    }
+    const tOpen = keys.map(k => rows.filter(c => bucket(c) === k && c.status === 'Open').length);
+    const tClosed = keys.map(k => rows.filter(c => bucket(c) === k && c.status === 'Closed').length);
+    const timeHasData = rows.length > 0;
+    $('timeChart').classList.toggle('hidden', !timeHasData);
+    $('timeEmpty').classList.toggle('hidden', timeHasData);
+    if (timeHasData) {
+      drawChart('timeChart', {
+        type: 'bar',
+        data: { labels, datasets: [
+          { label: 'Open', data: tOpen, backgroundColor: COLORS.open, borderRadius: 3 },
+          { label: 'Closed', data: tClosed, backgroundColor: COLORS.closed, borderRadius: 3 },
+        ]},
+        options: baseBarOptions(false),
+      });
+    } else if (charts.timeChart) { charts.timeChart.destroy(); delete charts.timeChart; }
+
+    // --- By client chart ---
+    const byClient = groupByClient(rows).slice(0, 10);
+    const clientHasData = byClient.length > 0;
+    $('clientChart').classList.toggle('hidden', !clientHasData);
+    $('clientEmpty').classList.toggle('hidden', clientHasData);
+    $('clientBox').style.height = clientHasData ? `${Math.max(200, 60 + byClient.length * 34)}px` : '280px';
+    if (clientHasData) {
+      drawChart('clientChart', {
+        type: 'bar',
+        data: { labels: byClient.map(g => g.name), datasets: [
+          { label: 'Open', data: byClient.map(g => g.open), backgroundColor: COLORS.open, borderRadius: 3 },
+          { label: 'Closed', data: byClient.map(g => g.closed), backgroundColor: COLORS.closed, borderRadius: 3 },
+        ]},
+        options: baseBarOptions(true),
+      });
+    } else if (charts.clientChart) { charts.clientChart.destroy(); delete charts.clientChart; }
+
+    // --- Report table ---
+    const all = groupByClient(rows);
+    $('reportBody').innerHTML = all.length ? all.map(g => `
+      <tr>
+        <td>${esc(g.name)}</td>
+        <td class="num">${g.total}</td>
+        <td class="num">${g.open ? `<span class="open-n">${g.open}</span>` : 0}</td>
+        <td class="num">${g.closed}</td>
+        <td class="num">${Math.round((g.closed / g.total) * 100)}%</td>
+        <td class="num">${g.avg == null ? '–' : duration(g.avg)}</td>
+      </tr>`).join('') + (all.length > 1 ? `
+      <tr style="font-weight:700">
+        <td>All clients</td><td class="num">${rows.length}</td><td class="num">${open}</td>
+        <td class="num">${rows.length - open}</td>
+        <td class="num">${rows.length ? Math.round(((rows.length - open) / rows.length) * 100) : 0}%</td>
+        <td class="num">${avg == null ? '–' : duration(avg)}</td>
+      </tr>` : '')
+      : '<tr><td colspan="6" style="color:var(--muted)">No concerns in this period.</td></tr>';
+
+    // --- Project report ---
+    const pmap = new Map();
+    rows.forEach(c => {
+      const k = `${clientName(c)}||${projectName(c)}`;
+      if (!pmap.has(k)) pmap.set(k, { client: clientName(c), project: projectName(c), total: 0, open: 0, closed: 0, rows: [] });
+      const g = pmap.get(k);
+      g.total++; g.rows.push(c);
+      c.status === 'Open' ? g.open++ : g.closed++;
+    });
+    const plist = [...pmap.values()].sort((a, b) =>
+      a.client.localeCompare(b.client) || b.total - a.total || a.project.localeCompare(b.project));
+    $('projectReportBody').innerHTML = plist.length ? plist.map(g => {
+      const avgP = avgClose(g.rows);
+      return `<tr>
+        <td>${esc(g.client)}</td>
+        <td>${g.project ? esc(g.project) : '<span style="color:var(--muted)">No project</span>'}</td>
+        <td class="num">${g.total}</td>
+        <td class="num">${g.open ? `<span class="open-n">${g.open}</span>` : 0}</td>
+        <td class="num">${g.closed}</td>
+        <td class="num">${avgP == null ? '–' : duration(avgP)}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" style="color:var(--muted)">No concerns in this period.</td></tr>';
+
+    // --- Longest open ---
+    const now = Date.now();
+    const oldest = rows.filter(c => c.status === 'Open')
+      .sort((a, b) => new Date(a.escalation_date) - new Date(b.escalation_date)).slice(0, 5);
+    $('agingList').innerHTML = oldest.length ? oldest.map(c => `
+      <li>
+        <span class="age">${duration(now - new Date(c.escalation_date))}</span>
+        <div class="body">
+          <strong>${esc(clientName(c))}${projectName(c) ? ' / ' + esc(projectName(c)) : ''}</strong>
+          <p title="${esc(c.concern)}">${esc(c.concern)}</p>
+        </div>
+      </li>`).join('')
+      : '<li style="color:var(--muted)">No open concerns in this period.</li>';
+  }
+
+  function groupByClient(rows) {
+    const map = new Map();
+    rows.forEach(c => {
+      const k = clientName(c);
+      if (!map.has(k)) map.set(k, { name: k, total: 0, open: 0, closed: 0, rows: [] });
+      const g = map.get(k);
+      g.total++; g.rows.push(c);
+      c.status === 'Open' ? g.open++ : g.closed++;
+    });
+    return [...map.values()]
+      .map(g => ({ ...g, avg: avgClose(g.rows) }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }
+
+  function baseBarOptions(horizontal) {
+    const countAxis = { stacked: true, beginAtZero: true, ticks: { precision: 0, color: COLORS.muted }, grid: { color: COLORS.line } };
+    const catAxis = { stacked: true, ticks: { color: COLORS.muted, autoSkip: !horizontal }, grid: { display: false } };
+    return {
+      indexAxis: horizontal ? 'y' : 'x',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, color: COLORS.ink, font: { family: 'Public Sans' } } },
+        tooltip: { mode: 'index', intersect: false },
+      },
+      scales: horizontal ? { x: countAxis, y: catAxis } : { x: catAxis, y: countAxis },
+    };
+  }
+
+  // ---- CSV + print ----
+  $('csvBtn').addEventListener('click', () => {
+    const rows = summaryRows();
+    if (!rows.length) { showError('There are no concerns in this period to download.'); return; }
+    const head = ['ID', 'Client', 'Project', 'Concern', 'Escalation date', 'Status', 'Logged by', 'Closed date', 'Closed by', 'Time to close'];
+    const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [head.map(cell).join(',')].concat(rows.map(c => [
+      c.id, clientName(c), projectName(c), c.concern, fmt(c.escalation_date), c.status, who(c.logged_by),
+      fmt(c.closed_at), who(c.closed_by), c.closed_at ? duration(closeMs(c)) : ''
+    ].map(cell).join(',')));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const p = $('sumMonth').value;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `concerns-${p === 'all' ? 'all-time' : p}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+  });
+  $('printBtn').addEventListener('click', () => window.print());
+  $('sumMonth').addEventListener('change', renderSummary);
+
+  // ---- Clients table ----
+  function renderClientTable() {
+    $('clientListTitle').textContent = `Clients (${clients.length})`;
+    $('clientTableBody').innerHTML = clients.length ? clients.map(cl => {
+      const rows = concerns.filter(c => c.client_id === cl.id);
+      const open = rows.filter(c => c.status === 'Open').length;
+      const plist = projectsOf(cl.id);
+      return `<tr>
+        <td><strong>${esc(cl.name)}</strong>
+          <div class="proj-list">${plist.length
+            ? plist.map(p => esc(p.name)).join(', ')
+            : 'No projects yet'}</div></td>
+        <td class="num">${rows.length}</td>
+        <td class="num">${open ? `<span class="open-n">${open}</span>` : 0}</td>
+        <td class="num"><button class="link" style="margin:0" data-log-for="${cl.id}">Log concern</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="4" style="color:var(--muted)">No clients yet. Add the first one using the form.</td></tr>';
+  }
+  $('clientTableBody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-log-for]');
+    if (b) startLogFor(b.dataset.logFor);
+  });
+  function startLogFor(id, projectId) {
+    hideNotice();
+    $('clientSelect').value = String(id);
+    renderProjectSelect(projectId ? String(projectId) : '');
+    showTab('log');
+  }
+
+  // ---- Concerns list ----
   function renderList() {
-    const open = concerns.filter(c => c.status === 'Open').length;
-    $('openCount').textContent = open;
-    $('closedCount').textContent = concerns.length - open;
-
     const list = $('list');
-    if (loading) { list.innerHTML = '<p class="empty">Loading concerns…</p>'; return; }
+    if (loading) { list.innerHTML = '<p class="empty">Loading concerns…</p>'; $('resultCount').textContent = ''; return; }
 
+    const month = $('conMonth').value || 'all';
+    const client = $('conClient').value || 'all';
+    const project = $('conProject').value || 'all';
     const q = search.trim().toLowerCase();
     const visible = concerns.filter(c => {
-      if (filter !== 'All' && c.status !== filter) return false;
+      if (statusFilter !== 'All' && c.status !== statusFilter) return false;
+      if (month !== 'all' && monthKey(c.escalation_date) !== month) return false;
+      if (client !== 'all' && String(c.client_id) !== client) return false;
+      if (project === 'none' && c.project_id) return false;
+      if (project !== 'all' && project !== 'none' && String(c.project_id) !== project) return false;
       if (!q) return true;
-      return c.concern.toLowerCase().includes(q) ||
-             (c.clients?.name ?? '').toLowerCase().includes(q);
+      return c.concern.toLowerCase().includes(q) || clientName(c).toLowerCase().includes(q) ||
+             projectName(c).toLowerCase().includes(q);
     });
+
+    $('resultCount').textContent = concerns.length
+      ? `Showing ${visible.length} of ${concerns.length} concern${concerns.length === 1 ? '' : 's'}`
+      : '';
 
     if (visible.length === 0) {
       list.innerHTML = `<p class="empty">${concerns.length === 0
-        ? 'No concerns logged yet. Use the form to record the first one.'
-        : 'No concerns match this view.'}</p>`;
+        ? 'No concerns logged yet. Go to Log new concern to record the first one.'
+        : 'No concerns match these filters.'}</p>`;
       return;
     }
 
@@ -343,7 +901,8 @@
         <li class="entry ${s}">
           <div class="entry-main">
             <div class="entry-top">
-              <span class="client">${esc(c.clients?.name ?? 'Unknown client')}</span>
+              <span class="client">${esc(clientName(c))}</span>
+              ${projectName(c) ? `<span class="project">${esc(projectName(c))}</span>` : ''}
               <span class="pill ${s}">${c.status}</span>
             </div>
             <p class="text">${esc(c.concern)}</p>
@@ -354,56 +913,116 @@
     }).join('') + '</ol>';
   }
 
+  function setStatusFilter(f) {
+    statusFilter = f;
+    document.querySelectorAll('.filters .tab').forEach(t => t.classList.toggle('on', t.dataset.filter === f));
+    renderList();
+  }
+  document.querySelectorAll('.filters .tab').forEach(t => t.addEventListener('click', () => setStatusFilter(t.dataset.filter)));
+  $('conMonth').addEventListener('change', renderList);
+  $('conClient').addEventListener('change', () => { renderProjectFilter(); renderList(); });
+  $('conProject').addEventListener('change', renderList);
+  $('search').addEventListener('input', e => { search = e.target.value; renderList(); });
+  $('list').addEventListener('click', e => {
+    const b = e.target.closest('button[data-id]');
+    if (b) setStatus(Number(b.dataset.id), b.dataset.to);
+  });
+
   // ---- Data ----
   async function load() {
     loading = true; renderList();
-    const [c, k] = await Promise.all([
+    const [c, k, p] = await Promise.all([
       db.from('clients').select('id, name').order('name'),
-      db.from('concerns').select(FIELDS).order('escalation_date', { ascending: false })
+      db.from('concerns').select(FIELDS).order('escalation_date', { ascending: false }),
+      db.from('projects').select('id, client_id, name').order('name'),
     ]);
     loading = false;
-    if (c.error || k.error) {
-      showError(`Couldn't load data: ${(c.error || k.error).message}. Check that schema.sql has been run in Supabase.`);
+    const err = c.error || k.error || p.error;
+    if (err) {
+      showError(`Couldn't load data: ${err.message}. Check that the latest schema.sql has been run in Supabase.`);
     } else {
-      clients = c.data; concerns = k.data; clearError();
+      clients = c.data; concerns = k.data; projects = p.data; clearError();
     }
-    renderClients(); renderList();
+    renderAll();
   }
 
   async function logConcern() {
     const clientId = $('clientSelect').value;
+    const projectId = $('projectSelect').value;
     const text = $('concernText').value.trim();
     if (!clientId || !text) { showError('Pick a client and describe the concern before logging it.'); return; }
+    if (projectsOf(clientId).length && !projectId) { showError('Pick the project this concern is about.'); return; }
 
     const btn = $('logBtn');
     btn.disabled = true; btn.textContent = 'Logging…';
     // escalation_date, status ('Open') and logged_by are filled in by the database
     const { data, error } = await db.from('concerns')
-      .insert({ client_id: Number(clientId), concern: text })
+      .insert({ client_id: Number(clientId), project_id: projectId ? Number(projectId) : null, concern: text })
       .select(FIELDS).single();
     btn.disabled = false; btn.textContent = 'Log concern';
 
     if (error) { showError(`Couldn't log concern: ${error.message}`); return; }
     concerns.unshift(data);
     $('concernText').value = '';
-    clearError();
-    if (filter === 'Closed') setFilter('Open'); else renderList();
+    $('clientSelect').value = '';
+    renderAll();
+    showNotice(`Concern logged for ${clientName(data)}${projectName(data) ? ' / ' + projectName(data) : ''} and marked Open.`,
+      '<button class="link" data-goto="concerns">View in Concerns</button>');
   }
 
   async function addClient() {
     const name = $('newClient').value.trim();
-    if (!name) return;
+    if (!name) { showError('Type the client name before adding it.'); return; }
+    const btn = $('addClientBtn');
+    btn.disabled = true;
     const { data, error } = await db.from('clients').insert({ name }).select('id, name').single();
+    btn.disabled = false;
     if (error) {
       showError(error.code === '23505' ? `${name} is already in the client list.` : `Couldn't add client: ${error.message}`);
       return;
     }
     clients.push(data);
     clients.sort((a, b) => a.name.localeCompare(b.name));
-    renderClients(String(data.id));
-    toggleAddClient(false);
-    clearError();
+    $('newClient').value = '';
+    renderAll();
+    showNotice(`${data.name} added to the client list.`,
+      `<button class="link" data-log-notice="${data.id}">Log a concern for ${esc(data.name)}</button>`);
   }
+  async function addProject() {
+    const clientId = $('projClient').value;
+    const name = $('newProject').value.trim();
+    if (!clientId || !name) { showError('Pick the client and type the project name before adding it.'); return; }
+    const btn = $('addProjectBtn');
+    btn.disabled = true;
+    const { data, error } = await db.from('projects')
+      .insert({ client_id: Number(clientId), name }).select('id, client_id, name').single();
+    btn.disabled = false;
+    const cName = clients.find(c => String(c.id) === String(clientId))?.name ?? 'this client';
+    if (error) {
+      showError(error.code === '23505' ? `${name} is already a project under ${cName}.` : `Couldn't add project: ${error.message}`);
+      return;
+    }
+    projects.push(data);
+    projects.sort((a, b) => a.name.localeCompare(b.name));
+    $('newProject').value = '';
+    renderAll();
+    showNotice(`${data.name} added under ${cName}.`,
+      `<button class="link" data-log-notice="${data.client_id}" data-log-project="${data.id}">Log a concern for this project</button>`);
+  }
+
+  $('notice').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-log-notice]');
+    if (b) startLogFor(b.dataset.logNotice, b.dataset.logProject);
+  });
+  $('clientSelect').addEventListener('change', () => renderProjectSelect(''));
+  $('addProjectLink').addEventListener('click', () => {
+    hideNotice();
+    $('projClient').value = $('clientSelect').value || '';
+    showTab('clients');
+    $(($('projClient').value ? 'newProject' : 'projClient')).focus();
+  });
+  $('addProjectBtn').addEventListener('click', addProject);
+  $('newProject').addEventListener('keydown', e => { if (e.key === 'Enter') addProject(); });
 
   async function setStatus(id, status) {
     busyId = id; renderList();
@@ -411,39 +1030,13 @@
     busyId = null;
     if (error) { showError(`Couldn't update status: ${error.message}`); renderList(); return; }
     concerns = concerns.map(c => c.id === id ? data : c);
-    renderList();
-  }
-
-  // ---- UI wiring ----
-  function setFilter(f) {
-    filter = f;
-    document.querySelectorAll('.tab').forEach(t => {
-      const on = t.dataset.filter === f;
-      t.classList.toggle('on', on);
-      t.setAttribute('aria-selected', on);
-    });
-    renderList();
-  }
-
-  function toggleAddClient(show) {
-    $('selectWrap').classList.toggle('hidden', show);
-    $('addClientWrap').classList.toggle('show', show);
-    $('newClient').value = '';
-    if (show) $('newClient').focus();
+    renderAll();
   }
 
   $('logBtn').addEventListener('click', logConcern);
-  $('showAddClient').addEventListener('click', () => toggleAddClient(true));
-  $('cancelAddClient').addEventListener('click', () => toggleAddClient(false));
   $('addClientBtn').addEventListener('click', addClient);
   $('newClient').addEventListener('keydown', e => { if (e.key === 'Enter') addClient(); });
   $('dismissBtn').addEventListener('click', clearError);
-  $('search').addEventListener('input', e => { search = e.target.value; renderList(); });
-  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setFilter(t.dataset.filter)));
-  $('list').addEventListener('click', e => {
-    const b = e.target.closest('button[data-id]');
-    if (b) setStatus(Number(b.dataset.id), b.dataset.to);
-  });
 </script>
 </body>
 </html>
