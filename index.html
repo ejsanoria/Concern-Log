@@ -36,6 +36,14 @@
   .login-card .sub { color: var(--muted); margin: 0 0 18px; }
   .login-error { color: var(--danger); font-size: 14px; margin: 12px 0 0; min-height: 1em; }
   .login-card .btn.primary { margin-top: 20px; }
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 64px; }
+  .pw-toggle {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; font: inherit; font-size: 13px; font-weight: 500;
+    color: var(--muted); padding: 4px 8px; border-radius: 4px; cursor: pointer;
+  }
+  .pw-toggle:hover { color: var(--ink); background: var(--paper); }
 
   /* ---------- App ---------- */
   .shell { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
@@ -137,7 +145,10 @@
     <input id="email" type="email" autocomplete="username" required />
 
     <label for="password">Password</label>
-    <input id="password" type="password" autocomplete="current-password" required />
+    <div class="pw-wrap">
+      <input id="password" type="password" autocomplete="current-password" required />
+      <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password" aria-pressed="false">Show</button>
+    </div>
 
     <button class="btn primary" id="loginBtn" type="submit">Sign in</button>
     <p class="login-error" id="loginError" role="alert"></p>
@@ -245,6 +256,7 @@
     $('appView').classList.add('hidden');
     $('loginView').classList.remove('hidden');
     $('password').value = '';
+    setPasswordVisible(false);
     $('email').focus();
   }
 
@@ -274,6 +286,17 @@
         ? 'Email or password is incorrect.'
         : error.message;
     }
+  });
+
+  function setPasswordVisible(show) {
+    $('password').type = show ? 'text' : 'password';
+    $('pwToggle').textContent = show ? 'Hide' : 'Show';
+    $('pwToggle').setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    $('pwToggle').setAttribute('aria-pressed', show);
+  }
+  $('pwToggle').addEventListener('click', () => {
+    setPasswordVisible($('password').type === 'password');
+    $('password').focus();
   });
 
   $('logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); });
