@@ -159,6 +159,10 @@
   .sev.major { background: var(--major-bg); color: var(--major); }
   .sev.minor { background: var(--minor-bg); color: var(--minor); }
   .cat { font-size: 13px; color: var(--muted); }
+  .src { font-size: 12px; font-weight: 500; color: #2a6fa8; background: #e7f1fa; padding: 1px 8px; border-radius: 4px; }
+  .orig { margin: 4px 0 6px; font-size: 13px; color: var(--muted); }
+  .orig summary { cursor: pointer; width: fit-content; }
+  .orig p { margin: 6px 0 0; padding: 8px 10px; background: var(--paper); border-radius: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .sev-line { margin: 10px 0 0; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
   .sev-none { font-style: italic; }
   .kpi.major .val { color: var(--major); }
@@ -449,7 +453,7 @@
     Major: ['Lack of manpower', 'Product damages', 'Facility damages', 'Operation performance'],
   };
 
-  const FIELDS = 'id, client_id, project_id, severity, category, concern, escalation_date, status, closed_at, logged_by, closed_by, clients(name), projects(name)';
+  const FIELDS = 'id, client_id, project_id, severity, category, source, original_text, concern, escalation_date, status, closed_at, logged_by, closed_by, clients(name), projects(name)';
   const COLORS = { open: '#b8640f', closed: '#2a7563', ink: '#1d2b3a', muted: '#5d6b7a', line: '#e3e8ed', major: '#a3302a', minor: '#34506e' };
 
   // ---- State ----
@@ -869,10 +873,10 @@
   $('csvBtn').addEventListener('click', () => {
     const rows = summaryRows();
     if (!rows.length) { showError('There are no concerns in this period to download.'); return; }
-    const head = ['ID', 'Client', 'Project', 'Severity', 'Category', 'Concern', 'Escalation date', 'Status', 'Logged by', 'Closed date', 'Closed by', 'Time to close'];
+    const head = ['ID', 'Client', 'Project', 'Severity', 'Category', 'Concern', 'Original message', 'Source', 'Escalation date', 'Status', 'Logged by', 'Closed date', 'Closed by', 'Time to close'];
     const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [head.map(cell).join(',')].concat(rows.map(c => [
-      c.id, clientName(c), projectName(c), c.severity ?? '', c.category ?? '', c.concern, fmt(c.escalation_date), c.status, who(c.logged_by),
+      c.id, clientName(c), projectName(c), c.severity ?? '', c.category ?? '', c.concern, c.original_text ?? '', c.source ?? '', fmt(c.escalation_date), c.status, who(c.logged_by),
       fmt(c.closed_at), who(c.closed_by), c.closed_at ? duration(closeMs(c)) : ''
     ].map(cell).join(',')));
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -966,8 +970,11 @@
               ${c.severity ? `<span class="sev ${c.severity.toLowerCase()}">${c.severity}</span>` : ''}
               ${c.category ? `<span class="cat">${esc(c.category)}</span>` : ''}
               <span class="pill ${s}">${c.status}</span>
+              ${c.source === 'Telegram' ? '<span class="src">via Telegram</span>' : ''}
             </div>
             <p class="text">${esc(c.concern)}</p>
+            ${c.original_text && c.original_text.trim() !== c.concern.trim()
+              ? `<details class="orig"><summary>Original message</summary><p>${esc(c.original_text)}</p></details>` : ''}
             <p class="dates">${logged}${closed}</p>
           </div>
           <div class="entry-action">${action}</div>
@@ -997,13 +1004,15 @@
   });
 
   // ---- Data ----
-  async function load() {
-    loading = true; renderList();
-    const [c, k, p] = await Promise.all([
+  const fetchAll = () => Promise.all([
       db.from('clients').select('id, name').order('name'),
       db.from('concerns').select(FIELDS).order('escalation_date', { ascending: false }),
       db.from('projects').select('id, client_id, name').order('name'),
     ]);
+
+  async function load() {
+    loading = true; renderList();
+    const [c, k, p] = await fetchAll();
     loading = false;
     const err = c.error || k.error || p.error;
     if (err) {
@@ -1013,6 +1022,19 @@
     }
     renderAll();
   }
+
+  // Check for new concerns (e.g. from Telegram) every 60 seconds
+  async function refreshSilently() {
+    if (!currentUser || loading || busyId !== null || document.hidden) return;
+    const [c, k, p] = await fetchAll();
+    if (c.error || k.error || p.error) return;
+    const changed = JSON.stringify([c.data, k.data, p.data]) !== JSON.stringify([clients, concerns, projects]);
+    if (!changed) return;
+    clients = c.data; concerns = k.data; projects = p.data;
+    renderAll();
+  }
+  setInterval(refreshSilently, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshSilently(); });
 
   // Severity follows automatically from the chosen category
   const severityOf = (cat) => Object.keys(TYPES).find(sev => TYPES[sev].includes(cat)) || '';
