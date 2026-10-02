@@ -16,6 +16,8 @@
     --open: #b8640f; --open-bg: #fdf1e3;
     --closed: #2a7563; --closed-bg: #e5f3ef;
     --danger: #a3302a; --ok-bg: #e5f3ef;
+    --major: #a3302a; --major-bg: #fbeceb;
+    --minor: #34506e; --minor-bg: #e8eef5;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -122,7 +124,7 @@
   .toolbar .period label { margin-top: 0; }
   .toolbar .actions { display: flex; gap: 8px; }
 
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
   .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
   .kpi .val { font-size: 30px; font-weight: 700; line-height: 1.1; }
   .kpi .lbl { color: var(--muted); font-size: 14px; margin-top: 4px; }
@@ -151,7 +153,18 @@
   .aging .body p { margin: 2px 0 0; color: var(--muted); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ---------- Concerns list ---------- */
-  .filters { display: grid; grid-template-columns: auto 170px 190px 190px 1fr; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .filters { display: grid; grid-template-columns: auto repeat(4, minmax(140px, 1fr)); gap: 10px; align-items: center; margin-bottom: 16px; }
+  .filters .search { grid-column: 1 / -1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
+  .seg button { font: inherit; font-weight: 500; border: none; background: none; padding: 8px 24px; cursor: pointer; color: var(--muted); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on[data-sev="Minor"] { background: var(--minor-bg); color: var(--minor); }
+  .seg button.on[data-sev="Major"] { background: var(--major-bg); color: var(--major); }
+  .sev { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .sev.major { background: var(--major-bg); color: var(--major); }
+  .sev.minor { background: var(--minor-bg); color: var(--minor); }
+  .cat { font-size: 13px; color: var(--muted); }
+  .kpi.major .val { color: var(--major); }
   .tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
   .tab { font: inherit; border: none; background: none; padding: 8px 14px; cursor: pointer; color: var(--muted); }
   .tab + .tab { border-left: 1px solid var(--line); }
@@ -236,7 +249,7 @@
 
   <nav class="nav" role="tablist" aria-label="Sections">
     <button role="tab" data-tab="summary">Summary</button>
-    <button role="tab" data-tab="log">Log new concern</button>
+    <button role="tab" data-tab="log">Log concern</button>
     <button role="tab" data-tab="clients">Add new client</button>
     <button role="tab" data-tab="concerns">Concerns <span class="badge" id="openBadge">0</span></button>
   </nav>
@@ -271,6 +284,7 @@
       <div class="kpi"><div class="val" id="kTotal">0</div><div class="lbl">Total concerns</div></div>
       <div class="kpi open"><div class="val" id="kOpen">0</div><div class="lbl">Still open</div></div>
       <div class="kpi closed"><div class="val" id="kClosed">0</div><div class="lbl">Closed</div></div>
+      <div class="kpi major"><div class="val" id="kMajor">0</div><div class="lbl">Major concerns</div></div>
       <div class="kpi"><div class="val" id="kAvg">–</div><div class="lbl">Average time to close</div></div>
     </div>
 
@@ -286,13 +300,18 @@
     </div>
 
     <div class="card">
+      <h3>Concerns by category</h3>
+      <div class="chart-box" id="typeBox" style="height:240px"><canvas id="typeChart"></canvas><p class="chart-empty hidden" id="typeEmpty">No concerns in this period.</p></div>
+    </div>
+
+    <div class="card">
       <h3>Report by client</h3>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Client</th><th class="num">Total</th><th class="num">Open</th>
-              <th class="num">Closed</th><th class="num">Closure rate</th><th class="num">Avg time to close</th>
+              <th class="num">Closed</th><th class="num">Major</th><th class="num">Closure rate</th><th class="num">Avg time to close</th>
             </tr>
           </thead>
           <tbody id="reportBody"></tbody>
@@ -323,7 +342,7 @@
 
   <!-- ===== LOG NEW CONCERN ===== -->
   <section class="panel hidden" id="panel-log">
-    <h2>Log new concern</h2>
+    <h2>Log concern</h2>
     <p class="lead">The escalation date and your name are recorded automatically. The concern starts as Open.</p>
     <div class="form-card">
       <label for="clientSelect">Client</label>
@@ -337,6 +356,17 @@
         <option value="">Select a client first</option>
       </select>
       <button class="link" id="addProjectLink">Project not listed? Add a project</button>
+
+      <label id="sevLabel">Severity</label>
+      <div class="seg" id="severitySeg" role="radiogroup" aria-labelledby="sevLabel">
+        <button type="button" role="radio" aria-checked="false" data-sev="Minor">Minor</button>
+        <button type="button" role="radio" aria-checked="false" data-sev="Major">Major</button>
+      </div>
+
+      <label for="categorySelect">Category</label>
+      <select id="categorySelect" disabled>
+        <option value="">Select the severity first</option>
+      </select>
 
       <label for="concernText">Concern</label>
       <textarea id="concernText" rows="7"
@@ -399,6 +429,7 @@
       <select id="conMonth" aria-label="Month"></select>
       <select id="conClient" aria-label="Client"></select>
       <select id="conProject" aria-label="Project" disabled><option value="all">All projects</option></select>
+      <select id="conType" aria-label="Severity and category"></select>
       <input class="search" id="search" type="search" placeholder="Search by client, project or concern" />
     </div>
 
@@ -420,12 +451,19 @@
     'aneliebunye@bcsd.com.ph': 'Anelie Bunye',
   };
 
-  const FIELDS = 'id, client_id, project_id, concern, escalation_date, status, closed_at, logged_by, closed_by, clients(name), projects(name)';
-  const COLORS = { open: '#b8640f', closed: '#2a7563', ink: '#1d2b3a', muted: '#5d6b7a', line: '#e3e8ed' };
+  // ---- Concern types (severity -> categories) ----
+  const TYPES = {
+    Minor: ['Behavioral'],
+    Major: ['Lack of manpower', 'Product damages', 'Facility damages', 'Operation performance'],
+  };
+
+  const FIELDS = 'id, client_id, project_id, severity, category, concern, escalation_date, status, closed_at, logged_by, closed_by, clients(name), projects(name)';
+  const COLORS = { open: '#b8640f', closed: '#2a7563', ink: '#1d2b3a', muted: '#5d6b7a', line: '#e3e8ed', major: '#a3302a', minor: '#34506e' };
 
   // ---- State ----
   let clients = [];
   let projects = [];
+  let severity = '';
   let concerns = [];
   let statusFilter = 'Open';
   let search = '';
@@ -671,6 +709,30 @@
     $('kTotal').textContent = rows.length;
     $('kOpen').textContent = open;
     $('kClosed').textContent = rows.length - open;
+    const majorCount = rows.filter(c => c.severity === 'Major').length;
+    $('kMajor').textContent = majorCount;
+
+    // --- Category chart ---
+    const cats = [];
+    Object.entries(TYPES).forEach(([sev, list]) => list.forEach(cat => cats.push({ sev, cat })));
+    const unset = rows.filter(c => !c.category).length;
+    const catCounts = cats.map(t => rows.filter(c => c.category === t.cat).length);
+    const catLabels = cats.map(t => `${t.cat} (${t.sev})`);
+    const catColors = cats.map(t => t.sev === 'Major' ? COLORS.major : COLORS.minor);
+    if (unset) { catLabels.push('Not set'); catCounts.push(unset); catColors.push('#b7c0c9'); }
+    const typeHasData = rows.length > 0;
+    $('typeChart').classList.toggle('hidden', !typeHasData);
+    $('typeEmpty').classList.toggle('hidden', typeHasData);
+    if (typeHasData) {
+      const opts = baseBarOptions(true);
+      opts.plugins.legend = { display: false };
+      opts.scales.x.stacked = false; opts.scales.y.stacked = false;
+      drawChart('typeChart', {
+        type: 'bar',
+        data: { labels: catLabels, datasets: [{ label: 'Concerns', data: catCounts, backgroundColor: catColors, borderRadius: 3 }] },
+        options: opts,
+      });
+    } else if (charts.typeChart) { charts.typeChart.destroy(); delete charts.typeChart; }
     $('kAvg').textContent = avg == null ? '–' : duration(avg);
 
     // --- Over time chart ---
@@ -731,16 +793,18 @@
         <td class="num">${g.total}</td>
         <td class="num">${g.open ? `<span class="open-n">${g.open}</span>` : 0}</td>
         <td class="num">${g.closed}</td>
+        <td class="num">${g.major}</td>
         <td class="num">${Math.round((g.closed / g.total) * 100)}%</td>
         <td class="num">${g.avg == null ? '–' : duration(g.avg)}</td>
       </tr>`).join('') + (all.length > 1 ? `
       <tr style="font-weight:700">
         <td>All clients</td><td class="num">${rows.length}</td><td class="num">${open}</td>
         <td class="num">${rows.length - open}</td>
+        <td class="num">${majorCount}</td>
         <td class="num">${rows.length ? Math.round(((rows.length - open) / rows.length) * 100) : 0}%</td>
         <td class="num">${avg == null ? '–' : duration(avg)}</td>
       </tr>` : '')
-      : '<tr><td colspan="6" style="color:var(--muted)">No concerns in this period.</td></tr>';
+      : '<tr><td colspan="7" style="color:var(--muted)">No concerns in this period.</td></tr>';
 
     // --- Project report ---
     const pmap = new Map();
@@ -784,9 +848,10 @@
     const map = new Map();
     rows.forEach(c => {
       const k = clientName(c);
-      if (!map.has(k)) map.set(k, { name: k, total: 0, open: 0, closed: 0, rows: [] });
+      if (!map.has(k)) map.set(k, { name: k, total: 0, open: 0, closed: 0, major: 0, rows: [] });
       const g = map.get(k);
       g.total++; g.rows.push(c);
+      if (c.severity === 'Major') g.major++;
       c.status === 'Open' ? g.open++ : g.closed++;
     });
     return [...map.values()]
@@ -812,10 +877,10 @@
   $('csvBtn').addEventListener('click', () => {
     const rows = summaryRows();
     if (!rows.length) { showError('There are no concerns in this period to download.'); return; }
-    const head = ['ID', 'Client', 'Project', 'Concern', 'Escalation date', 'Status', 'Logged by', 'Closed date', 'Closed by', 'Time to close'];
+    const head = ['ID', 'Client', 'Project', 'Severity', 'Category', 'Concern', 'Escalation date', 'Status', 'Logged by', 'Closed date', 'Closed by', 'Time to close'];
     const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = [head.map(cell).join(',')].concat(rows.map(c => [
-      c.id, clientName(c), projectName(c), c.concern, fmt(c.escalation_date), c.status, who(c.logged_by),
+      c.id, clientName(c), projectName(c), c.severity ?? '', c.category ?? '', c.concern, fmt(c.escalation_date), c.status, who(c.logged_by),
       fmt(c.closed_at), who(c.closed_by), c.closed_at ? duration(closeMs(c)) : ''
     ].map(cell).join(',')));
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -866,16 +931,19 @@
     const month = $('conMonth').value || 'all';
     const client = $('conClient').value || 'all';
     const project = $('conProject').value || 'all';
+    const type = $('conType').value || 'all';
     const q = search.trim().toLowerCase();
     const visible = concerns.filter(c => {
       if (statusFilter !== 'All' && c.status !== statusFilter) return false;
       if (month !== 'all' && monthKey(c.escalation_date) !== month) return false;
       if (client !== 'all' && String(c.client_id) !== client) return false;
       if (project === 'none' && c.project_id) return false;
+      if (type.startsWith('sev:') && c.severity !== type.slice(4)) return false;
+      if (type.startsWith('cat:') && c.category !== type.slice(4)) return false;
       if (project !== 'all' && project !== 'none' && String(c.project_id) !== project) return false;
       if (!q) return true;
       return c.concern.toLowerCase().includes(q) || clientName(c).toLowerCase().includes(q) ||
-             projectName(c).toLowerCase().includes(q);
+             projectName(c).toLowerCase().includes(q) || (c.category ?? '').toLowerCase().includes(q);
     });
 
     $('resultCount').textContent = concerns.length
@@ -884,7 +952,7 @@
 
     if (visible.length === 0) {
       list.innerHTML = `<p class="empty">${concerns.length === 0
-        ? 'No concerns logged yet. Go to Log new concern to record the first one.'
+        ? 'No concerns logged yet. Go to Log concern to record the first one.'
         : 'No concerns match these filters.'}</p>`;
       return;
     }
@@ -903,6 +971,8 @@
             <div class="entry-top">
               <span class="client">${esc(clientName(c))}</span>
               ${projectName(c) ? `<span class="project">${esc(projectName(c))}</span>` : ''}
+              ${c.severity ? `<span class="sev ${c.severity.toLowerCase()}">${c.severity}</span>` : ''}
+              ${c.category ? `<span class="cat">${esc(c.category)}</span>` : ''}
               <span class="pill ${s}">${c.status}</span>
             </div>
             <p class="text">${esc(c.concern)}</p>
@@ -922,6 +992,12 @@
   $('conMonth').addEventListener('change', renderList);
   $('conClient').addEventListener('change', () => { renderProjectFilter(); renderList(); });
   $('conProject').addEventListener('change', renderList);
+  $('conType').addEventListener('change', renderList);
+  $('conType').innerHTML = '<option value="all">All types</option>' +
+    Object.entries(TYPES).map(([sev, list]) =>
+      `<optgroup label="${sev}"><option value="sev:${sev}">All ${sev.toLowerCase()}</option>` +
+      list.map(cat => `<option value="cat:${cat}">${cat}</option>`).join('') + '</optgroup>'
+    ).join('');
   $('search').addEventListener('input', e => { search = e.target.value; renderList(); });
   $('list').addEventListener('click', e => {
     const b = e.target.closest('button[data-id]');
@@ -946,18 +1022,42 @@
     renderAll();
   }
 
+  function setSeverity(v) {
+    severity = v;
+    document.querySelectorAll('#severitySeg button').forEach(b => {
+      const on = b.dataset.sev === v;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on);
+    });
+    const sel = $('categorySelect');
+    if (!v) {
+      sel.innerHTML = '<option value="">Select the severity first</option>';
+      sel.disabled = true;
+      return;
+    }
+    const list = TYPES[v];
+    sel.disabled = false;
+    sel.innerHTML = (list.length > 1 ? '<option value="">Select the category</option>' : '') +
+      list.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+  }
+  document.querySelectorAll('#severitySeg button').forEach(b =>
+    b.addEventListener('click', () => setSeverity(b.dataset.sev)));
+
   async function logConcern() {
     const clientId = $('clientSelect').value;
     const projectId = $('projectSelect').value;
     const text = $('concernText').value.trim();
     if (!clientId || !text) { showError('Pick a client and describe the concern before logging it.'); return; }
     if (projectsOf(clientId).length && !projectId) { showError('Pick the project this concern is about.'); return; }
+    const category = $('categorySelect').value;
+    if (!severity) { showError('Select whether the concern is Minor or Major.'); return; }
+    if (!category) { showError('Select the category of the concern.'); return; }
 
     const btn = $('logBtn');
     btn.disabled = true; btn.textContent = 'Logging…';
     // escalation_date, status ('Open') and logged_by are filled in by the database
     const { data, error } = await db.from('concerns')
-      .insert({ client_id: Number(clientId), project_id: projectId ? Number(projectId) : null, concern: text })
+      .insert({ client_id: Number(clientId), project_id: projectId ? Number(projectId) : null, severity, category, concern: text })
       .select(FIELDS).single();
     btn.disabled = false; btn.textContent = 'Log concern';
 
@@ -965,8 +1065,9 @@
     concerns.unshift(data);
     $('concernText').value = '';
     $('clientSelect').value = '';
+    setSeverity('');
     renderAll();
-    showNotice(`Concern logged for ${clientName(data)}${projectName(data) ? ' / ' + projectName(data) : ''} and marked Open.`,
+    showNotice(`${data.severity} concern (${data.category}) logged for ${clientName(data)}${projectName(data) ? ' / ' + projectName(data) : ''} and marked Open.`,
       '<button class="link" data-goto="concerns">View in Concerns</button>');
   }
 
