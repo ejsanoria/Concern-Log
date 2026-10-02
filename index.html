@@ -155,15 +155,12 @@
   /* ---------- Concerns list ---------- */
   .filters { display: grid; grid-template-columns: auto repeat(4, minmax(140px, 1fr)); gap: 10px; align-items: center; margin-bottom: 16px; }
   .filters .search { grid-column: 1 / -1; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
-  .seg button { font: inherit; font-weight: 500; border: none; background: none; padding: 8px 24px; cursor: pointer; color: var(--muted); }
-  .seg button + button { border-left: 1px solid var(--line); }
-  .seg button.on[data-sev="Minor"] { background: var(--minor-bg); color: var(--minor); }
-  .seg button.on[data-sev="Major"] { background: var(--major-bg); color: var(--major); }
   .sev { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.03em; }
   .sev.major { background: var(--major-bg); color: var(--major); }
   .sev.minor { background: var(--minor-bg); color: var(--minor); }
   .cat { font-size: 13px; color: var(--muted); }
+  .sev-line { margin: 10px 0 0; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .sev-none { font-style: italic; }
   .kpi.major .val { color: var(--major); }
   .tabs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; }
   .tab { font: inherit; border: none; background: none; padding: 8px 14px; cursor: pointer; color: var(--muted); }
@@ -357,16 +354,11 @@
       </select>
       <button class="link" id="addProjectLink">Project not listed? Add a project</button>
 
-      <label id="sevLabel">Severity</label>
-      <div class="seg" id="severitySeg" role="radiogroup" aria-labelledby="sevLabel">
-        <button type="button" role="radio" aria-checked="false" data-sev="Minor">Minor</button>
-        <button type="button" role="radio" aria-checked="false" data-sev="Major">Major</button>
-      </div>
-
       <label for="categorySelect">Category</label>
-      <select id="categorySelect" disabled>
-        <option value="">Select the severity first</option>
+      <select id="categorySelect">
+        <option value="">Select the category of the concern</option>
       </select>
+      <p class="sev-line">Severity: <span id="sevDisplay" class="sev-none">set automatically from the category</span></p>
 
       <label for="concernText">Concern</label>
       <textarea id="concernText" rows="7"
@@ -1022,26 +1014,30 @@
     renderAll();
   }
 
+  // Severity follows automatically from the chosen category
+  const severityOf = (cat) => Object.keys(TYPES).find(sev => TYPES[sev].includes(cat)) || '';
+
+  function fillCategorySelect() {
+    $('categorySelect').innerHTML = '<option value="">Select the category of the concern</option>' +
+      Object.entries(TYPES).map(([sev, list]) =>
+        `<optgroup label="${sev}">` + list.map(cat => `<option value="${cat}">${cat}</option>`).join('') + '</optgroup>'
+      ).join('');
+  }
+
   function setSeverity(v) {
     severity = v;
-    document.querySelectorAll('#severitySeg button').forEach(b => {
-      const on = b.dataset.sev === v;
-      b.classList.toggle('on', on);
-      b.setAttribute('aria-checked', on);
-    });
-    const sel = $('categorySelect');
-    if (!v) {
-      sel.innerHTML = '<option value="">Select the severity first</option>';
-      sel.disabled = true;
-      return;
+    const d = $('sevDisplay');
+    if (v) {
+      d.className = `sev ${v.toLowerCase()}`;
+      d.textContent = v;
+    } else {
+      d.className = 'sev-none';
+      d.textContent = 'set automatically from the category';
     }
-    const list = TYPES[v];
-    sel.disabled = false;
-    sel.innerHTML = (list.length > 1 ? '<option value="">Select the category</option>' : '') +
-      list.map(cat => `<option value="${cat}">${cat}</option>`).join('');
   }
-  document.querySelectorAll('#severitySeg button').forEach(b =>
-    b.addEventListener('click', () => setSeverity(b.dataset.sev)));
+
+  fillCategorySelect();
+  $('categorySelect').addEventListener('change', (e) => setSeverity(severityOf(e.target.value)));
 
   async function logConcern() {
     const clientId = $('clientSelect').value;
@@ -1050,8 +1046,8 @@
     if (!clientId || !text) { showError('Pick a client and describe the concern before logging it.'); return; }
     if (projectsOf(clientId).length && !projectId) { showError('Pick the project this concern is about.'); return; }
     const category = $('categorySelect').value;
-    if (!severity) { showError('Select whether the concern is Minor or Major.'); return; }
     if (!category) { showError('Select the category of the concern.'); return; }
+    const severity = severityOf(category);
 
     const btn = $('logBtn');
     btn.disabled = true; btn.textContent = 'Logging…';
@@ -1065,6 +1061,7 @@
     concerns.unshift(data);
     $('concernText').value = '';
     $('clientSelect').value = '';
+    $('categorySelect').value = '';
     setSeverity('');
     renderAll();
     showNotice(`${data.severity} concern (${data.category}) logged for ${clientName(data)}${projectName(data) ? ' / ' + projectName(data) : ''} and marked Open.`,
